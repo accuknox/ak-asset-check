@@ -40,11 +40,6 @@ nfpms:
       - deb
       - rpm
     bindir: /usr/local/bin
-    contents:
-      - src: dist/ak-asset-check_{{ .Os }}_{{ .Arch }}/ak-asset-check
-        dst: /usr/local/bin/ak-asset-check
-        file_info:
-          mode: 0755
 
 checksum:
   name_template: "checksums.txt"
