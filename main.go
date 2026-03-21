@@ -31,6 +31,9 @@ var staticFS embed.FS
 //go:embed aws-billable-assets.txt azure-billable-assets.txt gcp-billable-assets.txt oracle-billable-assets.txt
 var billableFS embed.FS
 
+// buildDate is injected at link time via -ldflags "-X main.buildDate=..."
+var buildDate = "unknown"
+
 var (
 	scans   = make(map[string]*scanner.ScanState)
 	scansmu sync.RWMutex
@@ -71,7 +74,7 @@ func main() {
 	r.Get("/api/scan/{id}/log", handleGetScanLog)
 	r.Get("/api/scans", handleListScans)
 
-	fmt.Printf("AccuKnox Asset Check — http://0.0.0.0:%s\n", port)
+	fmt.Printf("AccuKnox Asset Check — built %s — http://0.0.0.0:%s\n", buildDate, port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

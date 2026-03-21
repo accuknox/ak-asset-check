@@ -45,10 +45,10 @@ The tool reads credentials from the standard locations for each cloud — no ext
 
 | Cloud | Credential source |
 |-------|-------------------|
-| **AWS** | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, `~/.aws/credentials`, or instance/task role |
-| **Azure** | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` env vars, or Azure CLI (`az login`) |
-| **GCP** | `GOOGLE_APPLICATION_CREDENTIALS` env var pointing to a service-account JSON, or `gcloud auth application-default login` |
-| **Oracle** | `~/.oci/config` (populated by `oci setup config`) |
+| <img src="static/logo-aws.svg" height="16" alt="AWS"> **AWS** | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, `~/.aws/credentials`, or instance/task role |
+| <img src="static/logo-azure.svg" height="16" alt="Azure"> **Azure** | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` env vars, or Azure CLI (`az login`) |
+| <img src="static/logo-gcp.svg" height="16" alt="GCP"> **GCP** | `GOOGLE_APPLICATION_CREDENTIALS` env var pointing to a service-account JSON, or `gcloud auth application-default login` |
+| <img src="static/logo-oracle.svg" height="16" alt="Oracle"> **Oracle** | `~/.oci/config` (populated by `oci setup config`) |
 
 Only the clouds with valid credentials will appear in the UI.
 

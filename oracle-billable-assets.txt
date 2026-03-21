@@ -1,5 +1,5 @@
 Compute Instance
-Autonomous Database
+Database
 Object Storage Bucket
 OKE Cluster
 MySQL Database

@@ -1,6 +1,7 @@
-BINARY  := ak-asset-check
-DIST    := dist
-LDFLAGS := -ldflags="-s -w"
+BINARY    := ak-asset-check
+DIST      := dist
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS   := -ldflags="-s -w -X main.buildDate=$(BUILD_DATE)"
 
 .PHONY: all build build-all tidy clean release snapshot
 
