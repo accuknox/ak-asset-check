@@ -1,0 +1,6 @@
+Compute Instance
+GKE Cluster
+Cloud Function
+Cloud SQL Instance
+Cloud Storage Bucket
+Cloud Run Service

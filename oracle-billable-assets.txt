@@ -1,0 +1,5 @@
+Compute Instance
+Autonomous Database
+Object Storage Bucket
+OKE Cluster
+MySQL Database

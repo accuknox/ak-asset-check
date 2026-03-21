@@ -1,0 +1,12 @@
+Virtual Machine
+AKS Cluster
+Azure Function
+SQL Database
+Cosmos DB
+Container Registry
+MySQL Server
+PostgreSQL Server
+MariaDB Server
+Redis Cache
+Azure OpenAI
+AI Foundry Project

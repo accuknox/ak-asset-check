@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AccuKnox Asset Check</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f8ef7;
+    --accent2: #7c5cbf;
+    --green: #34c47c;
+    --yellow: #f5a623;
+    --red: #e05252;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --radius: 12px;
+    --header-bg-start: #131629;
+    --header-bg-end: #1e2240;
+    --aws:    #FF9900;
+    --azure:  #0078D4;
+    --gcp:    #4285F4;
+    --oracle: #C74634;
+  }
+  [data-theme="light"] {
+    --bg: #f0f2f7;
+    --surface: #ffffff;
+    --surface2: #e8eaf2;
+    --border: #d0d5e8;
+    --text: #1a1d2e;
+    --muted: #5a6480;
+    --header-bg-start: #ffffff;
+    --header-bg-end: #f5f7ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+  .progress-bar-fill, .status-dot, canvas { transition: none !important; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--header-bg-start) 0%, var(--header-bg-end) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo img.logo-img {
+    height: 28px;
+    width: auto;
+    display: block;
+    filter: brightness(1.08);
+  }
+  [data-theme="light"] .logo img.logo-img {
+    filter: none;
+  }
+  .logo-divider {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .logo-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .account-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: monospace;
+    font-size: 0.78rem;
+  }
+  #scan-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #scan-btn:hover { opacity: 0.85; }
+  #scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Scan mode toggle ── */
+  .mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .mode-toggle-track {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .mode-toggle-track.on {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .mode-toggle-knob {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .mode-toggle-track.on .mode-toggle-knob { left: 20px; }
+  .mode-label-active { color: var(--text); font-weight: 600; }
+
+  /* ── Dark/light toggle ── */
+  #theme-toggle {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+  }
+  #theme-toggle:hover { background: var(--border); }
+
+  /* ── Main layout ── */
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* ── Cloud selector ── */
+  .cloud-selector {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .cloud-selector-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .cloud-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  .cloud-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    user-select: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .cloud-pill:hover { border-color: var(--accent); color: var(--text); }
+  .cloud-pill.unconfigured { opacity: 0.45; cursor: not-allowed; }
+  .cloud-pill.unconfigured:hover { border-color: var(--border); color: var(--muted); }
+  .cloud-pill[data-cloud="aws"].active    { border-color: var(--aws);    color: var(--aws);    background: rgba(255,153,0,0.1); }
+  .cloud-pill[data-cloud="azure"].active  { border-color: var(--azure);  color: var(--azure);  background: rgba(0,120,212,0.1); }
+  .cloud-pill[data-cloud="gcp"].active    { border-color: var(--gcp);    color: var(--gcp);    background: rgba(66,133,244,0.1); }
+  .cloud-pill[data-cloud="oracle"].active { border-color: var(--oracle); color: var(--oracle); background: rgba(199,70,52,0.1); }
+  .cloud-pill-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .cloud-pill-check { font-size: 0.7rem; opacity: 0.6; }
+  .pill-ro-badge {
+    font-size: 0.62rem; border-radius: 4px; padding: 1px 5px;
+    font-weight: 700; line-height: 1.4; margin-left: 2px; flex-shrink: 0;
+  }
+  .pill-ro-badge.ro-ok   { background: rgba(52,196,124,0.15); color: #34c47c; }
+  .pill-ro-badge.ro-warn { background: rgba(245,166,35,0.15);  color: #f5a623; }
+  .pill-ro-badge.ro-unk  { background: rgba(136,146,164,0.15); color: #8892a4; }
+
+  /* ── Status bar ── */
+  #status-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .status-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+  .status-dot.complete { background: var(--green); }
+  .status-dot.error { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .progress-bar-wrap {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Summary cards ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .card.blue::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .card.green::before { background: linear-gradient(90deg, #34c47c, #1fa85a); }
+  .card.yellow::before { background: linear-gradient(90deg, #f5a623, #e07b23); }
+  .card.purple::before { background: linear-gradient(90deg, var(--accent2), #5a3fa0); }
+  .card-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .card-sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+  /* ── Charts row ── */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 300px 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1300px) {
+    .charts-row { grid-template-columns: 300px 1fr 1fr; }
+    .charts-row .chart-card:last-child { grid-column: span 2; }
+  }
+  @media (max-width: 900px) {
+    .charts-row { grid-template-columns: 1fr 1fr; }
+    .charts-row .chart-card:first-child { grid-column: span 2; }
+    .charts-row .chart-card:last-child { grid-column: span 1; }
+  }
+  @media (max-width: 600px) {
+    .charts-row { grid-template-columns: 1fr; }
+    .charts-row .chart-card:first-child,
+    .charts-row .chart-card:last-child { grid-column: span 1; }
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .chart-card h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+  .chart-container { position: relative; }
+  .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .donut-center .big { font-size: 1.8rem; font-weight: 700; }
+  .donut-center .small { font-size: 0.72rem; color: var(--muted); }
+
+  /* ── Table section ── */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .table-toolbar h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    flex: 1;
+    min-width: 120px;
+  }
+  .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-select, .search-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    outline: none;
+  }
+  .filter-select:focus, .search-input:focus { border-color: var(--accent); }
+  .search-input { width: 200px; }
+  .export-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+  }
+  .export-btn:hover { background: var(--border); }
+
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+  }
+  thead th {
+    background: var(--surface2);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sort-icon { opacity: 0.4; margin-left: 4px; }
+  thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px 16px; vertical-align: middle; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-green  { background: rgba(52,196,124,0.15);  color: #34c47c; }
+  .badge-gray   { background: rgba(136,146,164,0.15); color: #8892a4; }
+  .badge-yellow { background: rgba(245,166,35,0.15);  color: #f5a623; }
+  .badge-red    { background: rgba(224,82,82,0.15);   color: #e05252; }
+  .badge-blue   { background: rgba(79,142,247,0.15);  color: #4f8ef7; }
+  .badge-aws    { background: rgba(255,153,0,0.15);   color: #FF9900; }
+  .badge-azure  { background: rgba(0,120,212,0.15);   color: #0078D4; }
+  .badge-gcp    { background: rgba(66,133,244,0.15);  color: #4285F4; }
+  .badge-oracle { background: rgba(199,70,52,0.15);   color: #C74634; }
+
+  .resource-name {
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .resource-id {
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detail-text {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .page-btns { display: flex; gap: 4px; }
+  .page-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.15s;
+  }
+  .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Empty / loading states ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* ── Errors section ── */
+  #errors-section {
+    margin-top: 20px;
+    background: rgba(224,82,82,0.08);
+    border: 1px solid rgba(224,82,82,0.3);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: none;
+  }
+  #errors-section h4 { font-size: 0.85rem; color: var(--red); margin-bottom: 8px; }
+  #errors-list { font-size: 0.78rem; color: var(--muted); line-height: 1.8; font-family: monospace; }
+
+  /* ── Report button ── */
+  .report-btn {
+    background: linear-gradient(135deg, #16a34a, #059669);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.2s;
+  }
+  .report-btn:hover { opacity: 0.85; }
+
+  /* ── Scan details button ── */
+  #details-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    display: none;
+    white-space: nowrap;
+  }
+  #details-btn:hover { opacity: 0.75; }
+
+  /* ── Scan progress modal ── */
+  #scan-detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  #scan-detail-overlay.hidden { display: none; }
+  #scan-detail-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 560px;
+    padding: 28px;
+    position: relative;
+  }
+  #scan-detail-modal h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .sdm-sub {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  /* Overall progress row */
+  .sdm-overall {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sdm-overall-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+  }
+  .sdm-bar-wrap {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .sdm-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  /* Per-cloud rows */
+  .sdm-clouds { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .sdm-cloud-row {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sdm-cloud-row.active { border-color: var(--accent); }
+  .sdm-cloud-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .sdm-cloud-name { font-weight: 600; font-size: 0.85rem; flex: 1; }
+  .sdm-cloud-count { font-size: 0.78rem; color: var(--muted); }
+  .sdm-status-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 3px 9px;
+    white-space: nowrap;
+  }
+  .sdm-pending  { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+  .sdm-scanning { background: rgba(79,142,247,0.15); color: var(--accent); border: 1px solid var(--accent); animation: pulse 1.2s infinite; }
+  .sdm-done     { background: rgba(52,196,124,0.15); color: #34c47c; }
+  .sdm-error    { background: rgba(224,82,82,0.15);  color: #e05252; }
+  /* Elapsed / stats row */
+  .sdm-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    flex-wrap: wrap;
+  }
+  .sdm-stat { display: flex; flex-direction: column; gap: 2px; }
+  .sdm-stat strong { color: var(--text); font-size: 1rem; font-weight: 700; }
+  /* Errors */
+  .sdm-errors {
+    margin-top: 12px;
+    background: rgba(224,82,82,0.08);
+    border: 1px solid rgba(224,82,82,0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.76rem;
+    color: #e05252;
+    font-family: monospace;
+    line-height: 1.7;
+    display: none;
+  }
+
+  /* ── Scan log panel ── */
+  .sdm-log-wrap {
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sdm-log-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    background: var(--surface2);
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .sdm-log-hdr:hover { color: var(--text); }
+  .sdm-log-hdr .log-toggle { font-size: 0.72rem; }
+  .sdm-log-body {
+    background: #0a0d14;
+    height: 240px;
+    overflow-y: auto;
+    padding: 10px 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+  }
+  [data-theme="light"] .sdm-log-body { background: #1a1d27; }
+  .sdm-log-body.collapsed { display: none; }
+  .log-line { display: flex; gap: 10px; align-items: baseline; }
+  .log-ts  { color: #4a5568; flex-shrink: 0; }
+  .log-msg-info    { color: #a0aec0; }
+  .log-msg-section { color: #718096; font-style: italic; }
+  .log-msg-ok      { color: #68d391; }
+  .log-msg-dim     { color: #4a5568; }
+  .log-msg-warn    { color: #f6ad55; }
+  .log-msg-err     { color: #fc8181; font-weight: 600; }
+
+  /* ── Help button ── */
+  #help-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    font-weight: 700;
+  }
+  #help-btn:hover { background: var(--border); }
+
+  /* ── Help modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 820px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { background: var(--border); }
+  .modal h2 { font-size: 1.25rem; margin-bottom: 4px; }
+  .modal .modal-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 28px; }
+
+  /* flow diagram */
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 140px;
+    max-width: 190px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px 16px;
+    text-align: center;
+    position: relative;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    color: var(--muted);
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .flow-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .flow-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: var(--text);
+  }
+  .flow-desc {
+    font-size: 0.73rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .flow-num {
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+
+  /* cloud grid */
+  .help-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .cloud-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:600px) { .cloud-grid { grid-template-columns: repeat(2,1fr); } }
+  .cloud-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .cloud-card .cc-icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+  .cloud-card .cc-name { font-size: 0.82rem; font-weight: 700; }
+  .cloud-card .cc-auth { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+  /* feature grid */
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 10px;
+  }
+  @media(max-width:520px) { .feat-grid { grid-template-columns: 1fr; } }
+  .feat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .feat-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .feat-title { font-size: 0.82rem; font-weight: 700; margin-bottom: 3px; }
+  .feat-desc  { font-size: 0.73rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img class="logo-img" src="/static/accuknox-logo.png" alt="AccuKnox" />
+    <div class="logo-divider"></div>
+    <span class="logo-title">Asset Check</span>
+  </div>
+  <div class="header-meta">
+    <span id="cloud-status-text">Multi-Cloud Inventory</span>
+    <span class="account-badge" id="account-id">—</span>
+    <div class="mode-toggle" title="Toggle between billable-only and full inventory scan">
+      <span id="mode-label-billable" class="mode-label-active">Billable</span>
+      <div class="mode-toggle-track" id="mode-track" onclick="toggleMode()">
+        <div class="mode-toggle-knob"></div>
+      </div>
+      <span id="mode-label-full">Full</span>
+    </div>
+    <button id="help-btn" onclick="openHelp()" title="How it works">?</button>
+    <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">🌙</button>
+    <button id="scan-btn" onclick="startScan()">▶ Scan</button>
+  </div>
+</header>
+
+<main>
+  <!-- Cloud selector -->
+  <div class="cloud-selector">
+    <span class="cloud-selector-label">Clouds</span>
+    <div class="cloud-pills" id="cloud-pills">
+      <!-- Populated by loadClouds() -->
+      <span style="color:var(--muted);font-size:0.82rem">Detecting configured clouds…</span>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Ready. Select clouds and click "Scan".</span>
+    <div class="progress-bar-wrap" id="progress-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <span id="progress-label" style="font-size:0.78rem;color:var(--muted);flex-shrink:0"></span>
+    <button id="details-btn" onclick="openScanDetails()">View Details</button>
+  </div>
+
+  <!-- Scan progress detail modal -->
+  <div id="scan-detail-overlay" class="hidden" onclick="closeScanDetailsOutside(event)">
+    <div id="scan-detail-modal">
+      <button class="modal-close" onclick="closeScanDetails()">✕</button>
+      <h3>Scan Progress</h3>
+      <div class="sdm-sub" id="sdm-sub">—</div>
+
+      <!-- Overall progress -->
+      <div class="sdm-overall">
+        <div class="sdm-overall-row">
+          <span id="sdm-progress-text" style="color:var(--text);font-weight:600">Starting…</span>
+          <span id="sdm-elapsed" style="color:var(--muted)"></span>
+        </div>
+        <div class="sdm-bar-wrap">
+          <div class="sdm-bar-fill" id="sdm-bar" style="width:0%"></div>
+        </div>
+        <div class="sdm-overall-row" style="color:var(--muted)">
+          <span id="sdm-steps">0 of 0 clouds</span>
+          <span id="sdm-found">0 resources found</span>
+        </div>
+      </div>
+
+      <!-- Per-cloud rows -->
+      <div class="sdm-clouds" id="sdm-clouds"></div>
+
+      <!-- Stats -->
+      <div class="sdm-stats" id="sdm-stats" style="display:none">
+        <div class="sdm-stat"><strong id="sdm-total">—</strong><span>Total resources</span></div>
+        <div class="sdm-stat"><strong id="sdm-billable">—</strong><span>Billable</span></div>
+        <div class="sdm-stat"><strong id="sdm-elapsed-final">—</strong><span>Duration</span></div>
+      </div>
+
+      <!-- Errors -->
+      <div class="sdm-errors" id="sdm-errors"></div>
+
+      <!-- Live log -->
+      <div class="sdm-log-wrap">
+        <div class="sdm-log-hdr" onclick="toggleSdmLog()">
+          <span>📄 Live Log <span id="sdm-log-count" style="font-weight:400;margin-left:6px"></span></span>
+          <span class="log-toggle" id="sdm-log-toggle">▾ collapse</span>
+        </div>
+        <div class="sdm-log-body" id="sdm-log-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="cards">
+    <div class="card blue">
+      <div class="card-label">Total Assets</div>
+      <div class="card-value" id="c-total">—</div>
+      <div class="card-sub" id="c-regions">—</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Billable Resources</div>
+      <div class="card-value" id="c-billable">—</div>
+      <div class="card-sub" id="c-billable-pct">actively incurring charges</div>
+    </div>
+    <div class="card yellow">
+      <div class="card-label">Non-Billable / Idle</div>
+      <div class="card-value" id="c-nonbillable">—</div>
+      <div class="card-sub">stopped / terminated</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Resource Types</div>
+      <div class="card-value" id="c-types">—</div>
+      <div class="card-sub" id="c-categories">—</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-row">
+    <!-- Donut: Billable vs Non-billable -->
+    <div class="chart-card">
+      <h3>Billability Split</h3>
+      <div class="chart-container" style="height:200px">
+        <canvas id="donut-chart"></canvas>
+        <div class="donut-center" id="donut-center" style="display:none">
+          <div class="big" id="donut-pct">0%</div>
+          <div class="small">billable</div>
+        </div>
+      </div>
+    </div>
+    <!-- Bar: By category -->
+    <div class="chart-card">
+      <h3>By Category</h3>
+      <div class="chart-container" style="height:200px">
+        <canvas id="category-chart"></canvas>
+      </div>
+    </div>
+    <!-- Bar: By region (top 10) -->
+    <div class="chart-card">
+      <h3>By Region (Top 10)</h3>
+      <div class="chart-container" style="height:200px">
+        <canvas id="region-chart"></canvas>
+      </div>
+    </div>
+    <!-- Bar: By cloud -->
+    <div class="chart-card">
+      <h3>By Cloud</h3>
+      <div class="chart-container" style="height:200px">
+        <canvas id="cloud-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resource table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <h3>Resource Inventory</h3>
+      <div class="filter-group">
+        <input class="search-input" type="text" placeholder="Search name or ID…" id="search-input" oninput="applyFilters()" />
+        <select class="filter-select" id="filter-cloud" onchange="applyFilters()">
+          <option value="">All Clouds</option>
+        </select>
+        <select class="filter-select" id="filter-category" onchange="applyFilters()">
+          <option value="">All Categories</option>
+        </select>
+        <select class="filter-select" id="filter-type" onchange="applyFilters()">
+          <option value="">All Types</option>
+        </select>
+        <select class="filter-select" id="filter-region" onchange="applyFilters()">
+          <option value="">All Regions</option>
+        </select>
+        <select class="filter-select" id="filter-billable" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="true">Billable</option>
+          <option value="false">Non-Billable</option>
+        </select>
+        <button class="export-btn" onclick="exportCSV()">⬇ CSV</button>
+        <button class="report-btn" onclick="downloadReport()">⬇ Report</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('name')">Name <span class="sort-icon" id="sort-name">↕</span></th>
+            <th onclick="sortBy('id')">Resource ID <span class="sort-icon" id="sort-id">↕</span></th>
+            <th onclick="sortBy('type')">Type <span class="sort-icon" id="sort-type">↕</span></th>
+            <th onclick="sortBy('category')">Category <span class="sort-icon" id="sort-category">↕</span></th>
+            <th onclick="sortBy('cloud')">Cloud <span class="sort-icon" id="sort-cloud">↕</span></th>
+            <th onclick="sortBy('region')">Region <span class="sort-icon" id="sort-region">↕</span></th>
+            <th onclick="sortBy('state')">State <span class="sort-icon" id="sort-state">↕</span></th>
+            <th>Detail</th>
+            <th onclick="sortBy('billable')">Billable <span class="sort-icon" id="sort-billable">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="resource-table-body">
+          <tr><td colspan="9"><div class="empty-state"><div class="icon">☁️</div><p>Select clouds above and run a scan to discover assets.</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <span id="table-info">—</span>
+      <div class="page-btns" id="page-btns"></div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div class="modal-overlay hidden" id="help-overlay" onclick="closeHelpOutside(event)">
+    <div class="modal" id="help-modal">
+      <button class="modal-close" onclick="closeHelp()">✕</button>
+      <h2>How AccuKnox Asset Check Works</h2>
+      <p class="modal-sub">Discover, inventory, and understand your cloud resources across AWS, Azure, GCP, and Oracle — in minutes.</p>
+
+      <!-- Flow diagram -->
+      <div class="flow">
+        <div class="flow-step">
+          <span class="flow-num">Step 1</span>
+          <span class="flow-icon">🔑</span>
+          <div class="flow-title">Configure Credentials</div>
+          <div class="flow-desc">Use your existing CLI credentials — AWS CLI, Azure CLI, gcloud, or OCI config. No new accounts needed.</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <span class="flow-num">Step 2</span>
+          <span class="flow-icon">☁️</span>
+          <div class="flow-title">Select Clouds</div>
+          <div class="flow-desc">Configured providers are auto-detected and highlighted. Pick one or many to scan.</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <span class="flow-num">Step 3</span>
+          <span class="flow-icon">🔍</span>
+          <div class="flow-title">Run Scan</div>
+          <div class="flow-desc">Choose <strong>Billable</strong> (fast, ~30s) or <strong>Full</strong> inventory. The tool queries every region in parallel.</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <span class="flow-num">Step 4</span>
+          <span class="flow-icon">📊</span>
+          <div class="flow-title">Explore Results</div>
+          <div class="flow-desc">Charts, filters, and a sortable table show every asset. Export to CSV or HTML report.</div>
+        </div>
+      </div>
+
+      <!-- Cloud providers -->
+      <div class="help-section-title">Supported Cloud Providers</div>
+      <div class="cloud-grid">
+        <div class="cloud-card">
+          <span class="cc-icon">🟠</span>
+          <div class="cc-name" style="color:#FF9900">Amazon AWS</div>
+          <div class="cc-auth">Uses AWS CLI / IAM credentials (~/.aws/credentials)</div>
+        </div>
+        <div class="cloud-card">
+          <span class="cc-icon">🔵</span>
+          <div class="cc-name" style="color:#0078D4">Microsoft Azure</div>
+          <div class="cc-auth">Uses Azure CLI / DefaultAzureCredential (az login)</div>
+        </div>
+        <div class="cloud-card">
+          <span class="cc-icon">🔷</span>
+          <div class="cc-name" style="color:#4285F4">Google Cloud</div>
+          <div class="cc-auth">Uses Application Default Credentials (gcloud auth)</div>
+        </div>
+        <div class="cloud-card">
+          <span class="cc-icon">🔴</span>
+          <div class="cc-name" style="color:#C74634">Oracle OCI</div>
+          <div class="cc-auth">Uses OCI config file (~/.oci/config)</div>
+        </div>
+      </div>
+
+      <!-- Features -->
+      <div class="help-section-title">Key Features</div>
+      <div class="feat-grid">
+        <div class="feat-card">
+          <span class="feat-icon">💰</span>
+          <div>
+            <div class="feat-title">Billability Detection</div>
+            <div class="feat-desc">Resources are marked <em>billable</em> or <em>non-billable</em> based on configurable lists (e.g. <code>aws-billable-assets.txt</code>). Edit these files to match your pricing model.</div>
+          </div>
+        </div>
+        <div class="feat-card">
+          <span class="feat-icon">⚡</span>
+          <div>
+            <div class="feat-title">Two Scan Modes</div>
+            <div class="feat-desc"><strong>Billable</strong> — scans only cost-incurring resource types (~30 seconds). <strong>Full</strong> — scans every supported service type across all regions.</div>
+          </div>
+        </div>
+        <div class="feat-card">
+          <span class="feat-icon">📋</span>
+          <div>
+            <div class="feat-title">Filter &amp; Search</div>
+            <div class="feat-desc">Filter by cloud, category, type, region, or billability. Full-text search across name and ID. Sort any column.</div>
+          </div>
+        </div>
+        <div class="feat-card">
+          <span class="feat-icon">📥</span>
+          <div>
+            <div class="feat-title">Export Reports</div>
+            <div class="feat-desc">Download a <strong>CSV</strong> for spreadsheet analysis or a styled <strong>HTML report</strong> to share with your team — no login required to view.</div>
+          </div>
+        </div>
+        <div class="feat-card">
+          <span class="feat-icon">🔄</span>
+          <div>
+            <div class="feat-title">Scan Persistence</div>
+            <div class="feat-desc">Refresh the page without losing results. Running scans automatically resume polling; completed results are restored from the server.</div>
+          </div>
+        </div>
+        <div class="feat-card">
+          <span class="feat-icon">🎨</span>
+          <div>
+            <div class="feat-title">Dark &amp; Light Mode</div>
+            <div class="feat-desc">Toggle between themes using the ☀️/🌙 button. Your preference is saved across sessions.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Read-only credentials guidance -->
+      <div class="help-section-title">Read-Only Credentials (Recommended)</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:12px">
+        This tool only reads from your cloud accounts. For best security, restrict its credentials to read-only access:
+      </p>
+      <div class="cloud-grid" style="grid-template-columns:1fr 1fr">
+        <div class="cloud-card" style="align-items:flex-start">
+          <span class="cc-icon">🟠</span>
+          <div>
+            <div class="cc-name" style="color:#FF9900">AWS</div>
+            <div class="cc-auth" style="margin-top:6px">
+              <code style="font-size:0.75rem;word-break:break-all">aws iam attach-user-policy --user-name YOUR_USER --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess</code>
+            </div>
+          </div>
+        </div>
+        <div class="cloud-card" style="align-items:flex-start">
+          <span class="cc-icon">🔵</span>
+          <div>
+            <div class="cc-name" style="color:#0078D4">Azure</div>
+            <div class="cc-auth" style="margin-top:6px">
+              <code style="font-size:0.75rem;word-break:break-all">az role assignment create --role Reader --assignee YOUR_PRINCIPAL --scope /subscriptions/SUB_ID</code>
+            </div>
+          </div>
+        </div>
+        <div class="cloud-card" style="align-items:flex-start">
+          <span class="cc-icon">🔷</span>
+          <div>
+            <div class="cc-name" style="color:#4285F4">GCP</div>
+            <div class="cc-auth" style="margin-top:6px">
+              <code style="font-size:0.75rem;word-break:break-all">gcloud projects add-iam-policy-binding PROJECT_ID --member="serviceAccount:SA" --role="roles/viewer"</code><br>
+              <span style="font-size:0.75rem;color:var(--muted)">For user credentials: <code>gcloud auth application-default login</code> (scopes enforced automatically)</span>
+            </div>
+          </div>
+        </div>
+        <div class="cloud-card" style="align-items:flex-start">
+          <span class="cc-icon">🔴</span>
+          <div>
+            <div class="cc-name" style="color:#C74634">Oracle OCI</div>
+            <div class="cc-auth" style="margin-top:6px">
+              Use only <code>inspect</code> and <code>read</code> verbs in OCI policies:<br>
+              <code style="font-size:0.75rem">Allow group ReadOnlyGroup to inspect all-resources in tenancy</code><br>
+              <code style="font-size:0.75rem">Allow group ReadOnlyGroup to read all-resources in tenancy</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Errors -->
+  <div id="errors-section">
+    <h4>⚠ Scan Warnings / Errors</h4>
+    <div id="errors-list"></div>
+  </div>
+</main>
+
+<script>
+// ── Constants ───────────────────────────────────────────────────────────────
+const CLOUD_COLORS = {
+  aws:    '#FF9900',
+  azure:  '#0078D4',
+  gcp:    '#4285F4',
+  oracle: '#C74634',
+};
+const CLOUD_LABELS = {
+  aws: 'AWS', azure: 'Azure', gcp: 'GCP', oracle: 'Oracle',
+};
+const CLOUD_ICONS = {
+  aws: '🟠', azure: '🔵', gcp: '🔷', oracle: '🔴',
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allResources = [];
+let filtered = [];
+let scanMode = 'billable';
+let selectedClouds = [];      // clouds chosen by user
+let detectedClouds = {};      // {aws: {configured:true, label:'...'}, ...}
+let readonlyStatus = {};      // {aws: {readonly:true/false/null, warning:...}, ...}
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let sortField = 'type';
+let sortDir = 1;
+let pollTimer = null;
+let currentScanId = null;
+
+// Chart instances
+let donutChart, categoryChart, regionChart, cloudChart;
+
+// ── Chart defaults ─────────────────────────────────────────────────────────
+Chart.defaults.color = '#8892a4';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 11;
+
+const PALETTE = [
+  '#4f8ef7','#7c5cbf','#34c47c','#f5a623','#e05252',
+  '#5bc0de','#a78bfa','#10b981','#fb923c','#f43f5e',
+];
+
+function initCharts() {
+  const gridDark = '#2e3250';
+
+  // Donut
+  const dc = document.getElementById('donut-chart').getContext('2d');
+  donutChart = new Chart(dc, {
+    type: 'doughnut',
+    data: {
+      labels: ['Billable', 'Non-Billable'],
+      datasets: [{ data: [0, 0], backgroundColor: ['#34c47c', gridDark], borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12 } } },
+      animation: { animateRotate: true }
+    }
+  });
+
+  // Category bar
+  const cc = document.getElementById('category-chart').getContext('2d');
+  categoryChart = new Chart(cc, {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Billable',     data: [], backgroundColor: '#4f8ef7', borderRadius: 4 },
+      { label: 'Non-Billable', data: [], backgroundColor: gridDark,  borderRadius: 4 },
+    ]},
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } } },
+      scales: {
+        x: { stacked: true, grid: { color: gridDark }, ticks: { precision: 0 } },
+        y: { stacked: true, grid: { display: false } }
+      },
+    }
+  });
+
+  // Region bar
+  const rc = document.getElementById('region-chart').getContext('2d');
+  regionChart = new Chart(rc, {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Billable',     data: [], backgroundColor: '#7c5cbf', borderRadius: 4 },
+      { label: 'Non-Billable', data: [], backgroundColor: gridDark,  borderRadius: 4 },
+    ]},
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } } },
+      scales: {
+        x: { stacked: true, grid: { color: gridDark }, ticks: { precision: 0 } },
+        y: { stacked: true, grid: { display: false } }
+      },
+    }
+  });
+
+  // Cloud bar
+  const xc = document.getElementById('cloud-chart').getContext('2d');
+  cloudChart = new Chart(xc, {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Billable',     data: [], backgroundColor: [], borderRadius: 4 },
+      { label: 'Non-Billable', data: [], backgroundColor: gridDark, borderRadius: 4 },
+    ]},
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } } },
+      scales: {
+        x: { stacked: true, grid: { color: gridDark }, ticks: { precision: 0 } },
+        y: { stacked: true, grid: { display: false } }
+      },
+    }
+  });
+}
+
+// ── Update charts ──────────────────────────────────────────────────────────
+function updateCharts(summary) {
+  if (!summary || !summary.total) return;
+  const gridColor = document.documentElement.getAttribute('data-theme') === 'light' ? '#d0d5e8' : '#2e3250';
+
+  // Donut
+  donutChart.data.datasets[0].data = [summary.billable, summary.total - summary.billable];
+  donutChart.update();
+  document.getElementById('donut-center').style.display = 'block';
+  document.getElementById('donut-pct').textContent =
+    Math.round((summary.billable / summary.total) * 100) + '%';
+
+  // Category chart
+  const cats = summary.by_category || {};
+  const catLabels = Object.keys(cats).sort((a, b) => cats[b].total - cats[a].total);
+  categoryChart.data.labels = catLabels;
+  categoryChart.data.datasets[0].data = catLabels.map(c => cats[c].billable);
+  categoryChart.data.datasets[1].data = catLabels.map(c => cats[c].total - cats[c].billable);
+  categoryChart.update();
+
+  // Region chart (top 10)
+  const regs = summary.by_region || {};
+  const regLabels = Object.keys(regs).sort((a, b) => regs[b].total - regs[a].total).slice(0, 10);
+  regionChart.data.labels = regLabels;
+  regionChart.data.datasets[0].data = regLabels.map(r => regs[r].billable);
+  regionChart.data.datasets[1].data = regLabels.map(r => regs[r].total - regs[r].billable);
+  regionChart.update();
+
+  // Cloud chart
+  const clouds = summary.by_cloud || {};
+  const cloudLabels = Object.keys(clouds).sort();
+  cloudChart.data.labels = cloudLabels.map(c => CLOUD_LABELS[c] || c);
+  cloudChart.data.datasets[0].data = cloudLabels.map(c => clouds[c].billable);
+  cloudChart.data.datasets[0].backgroundColor = cloudLabels.map(c => CLOUD_COLORS[c] || '#4f8ef7');
+  cloudChart.data.datasets[1].data = cloudLabels.map(c => clouds[c].total - clouds[c].billable);
+  cloudChart.options.scales.x.grid.color = gridColor;
+  cloudChart.update();
+}
+
+// ── Update summary cards ────────────────────────────────────────────────────
+function updateCards(summary, accountId) {
+  if (accountId) document.getElementById('account-id').textContent = accountId;
+  if (!summary || !summary.total) return;
+  document.getElementById('c-total').textContent = summary.total.toLocaleString();
+  const cloudsScanned = Object.keys(summary.by_cloud || {}).length;
+  const regionsText = cloudsScanned > 1
+    ? `across ${cloudsScanned} clouds`
+    : `across ${summary.regions_scanned || '?'} regions`;
+  document.getElementById('c-regions').textContent = regionsText;
+  document.getElementById('c-billable').textContent = summary.billable.toLocaleString();
+  document.getElementById('c-billable-pct').textContent =
+    `${Math.round((summary.billable / summary.total) * 100)}% of all assets`;
+  document.getElementById('c-nonbillable').textContent =
+    (summary.total - summary.billable).toLocaleString();
+  document.getElementById('c-types').textContent =
+    Object.keys(summary.by_type || {}).length;
+  document.getElementById('c-categories').textContent =
+    Object.keys(summary.by_category || {}).length + ' categories';
+}
+
+// ── Cloud pills ────────────────────────────────────────────────────────────
+async function loadClouds() {
+  try {
+    const res = await fetch('/api/clouds');
+    detectedClouds = await res.json();
+    // Auto-select all configured clouds on first load
+    selectedClouds = ['aws','azure','gcp','oracle'].filter(
+      c => detectedClouds[c] && detectedClouds[c].configured
+    );
+    renderCloudPills();
+  } catch(e) {
+    document.getElementById('cloud-pills').innerHTML =
+      '<span style="color:var(--muted);font-size:0.82rem">Could not detect clouds.</span>';
+  }
+}
+
+function renderCloudPills() {
+  const container = document.getElementById('cloud-pills');
+  const order = ['aws', 'azure', 'gcp', 'oracle'];
+  container.innerHTML = '';
+
+  order.forEach(cloud => {
+    const info = detectedClouds[cloud] || { configured: false, label: '' };
+    const configured = info.configured;
+    const isSelected = configured && selectedClouds.includes(cloud);
+
+    const pill = document.createElement('div');
+    pill.className = 'cloud-pill' + (configured ? '' : ' unconfigured') + (isSelected ? ' active' : '');
+    pill.dataset.cloud = cloud;
+    pill.title = configured ? (info.label || cloud) : `${CLOUD_LABELS[cloud]}: not configured`;
+
+    const ro = readonlyStatus[cloud];
+    let roBadge = '';
+    if (configured && ro) {
+      if (ro.readonly === true) {
+        roBadge = `<span class="pill-ro-badge ro-ok" title="Read-only credentials confirmed">RO</span>`;
+      } else if (ro.readonly === false) {
+        roBadge = `<span class="pill-ro-badge ro-warn" title="${ro.warning || 'Write access detected'}">!</span>`;
+      } else {
+        roBadge = `<span class="pill-ro-badge ro-unk" title="${ro.warning || 'Could not verify read-only status'}">?</span>`;
+      }
+    }
+
+    pill.innerHTML = `
+      <span class="cloud-pill-dot"></span>
+      <span>${CLOUD_LABELS[cloud]}</span>
+      <span class="cloud-pill-check">${configured ? (isSelected ? '✓' : '') : '✗'}</span>
+      ${roBadge}
+    `;
+
+    if (configured) pill.onclick = () => toggleCloud(cloud);
+    container.appendChild(pill);
+  });
+
+  updateCloudStatusText();
+}
+
+function toggleCloud(cloud) {
+  const idx = selectedClouds.indexOf(cloud);
+  if (idx >= 0) {
+    selectedClouds.splice(idx, 1);
+  } else {
+    selectedClouds.push(cloud);
+  }
+  renderCloudPills();
+}
+
+function updateCloudStatusText() {
+  const names = selectedClouds.map(c => CLOUD_LABELS[c] || c);
+  const el = document.getElementById('cloud-status-text');
+  if (names.length === 0) {
+    el.textContent = 'Multi-Cloud Inventory';
+  } else if (names.length === 1) {
+    el.textContent = names[0] + ' Inventory';
+  } else {
+    el.textContent = names.join(' + ') + ' Inventory';
+  }
+}
+
+// ── Filter dropdowns ────────────────────────────────────────────────────────
+function populateFilters(resources) {
+  const clouds   = [...new Set(resources.map(r => r.cloud))].sort();
+  const cats     = [...new Set(resources.map(r => r.category))].sort();
+  const types    = [...new Set(resources.map(r => r.type))].sort();
+  const regions  = [...new Set(resources.map(r => r.region))].sort();
+
+  function fill(id, opts, label) {
+    const el = document.getElementById(id);
+    const cur = el.value;
+    el.innerHTML = `<option value="">All ${label}</option>`;
+    opts.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o;
+      opt.textContent = CLOUD_LABELS[o] || o;
+      if (o === cur) opt.selected = true;
+      el.appendChild(opt);
+    });
+  }
+  fill('filter-cloud',    clouds,  'Clouds');
+  fill('filter-category', cats,    'Categories');
+  fill('filter-type',     types,   'Types');
+  fill('filter-region',   regions, 'Regions');
+}
+
+// ── Sort ────────────────────────────────────────────────────────────────────
+function sortBy(field) {
+  if (sortField === field) sortDir *= -1;
+  else { sortField = field; sortDir = 1; }
+  document.querySelectorAll('.sort-icon').forEach(el => el.textContent = '↕');
+  const el = document.getElementById(`sort-${field}`);
+  if (el) el.textContent = sortDir === 1 ? '↑' : '↓';
+  renderTable();
+}
+
+// ── Filter & render ─────────────────────────────────────────────────────────
+function applyFilters() {
+  const q    = document.getElementById('search-input').value.toLowerCase();
+  const cld  = document.getElementById('filter-cloud').value;
+  const cat  = document.getElementById('filter-category').value;
+  const typ  = document.getElementById('filter-type').value;
+  const reg  = document.getElementById('filter-region').value;
+  const bill = document.getElementById('filter-billable').value;
+
+  filtered = allResources.filter(r => {
+    if (q && !r.name.toLowerCase().includes(q) && !r.id.toLowerCase().includes(q) && !r.type.toLowerCase().includes(q)) return false;
+    if (cld  && r.cloud    !== cld)  return false;
+    if (cat  && r.category !== cat)  return false;
+    if (typ  && r.type     !== typ)  return false;
+    if (reg  && r.region   !== reg)  return false;
+    if (bill === 'true'  && !r.billable) return false;
+    if (bill === 'false' &&  r.billable) return false;
+    return true;
+  });
+
+  currentPage = 1;
+  renderTable();
+}
+
+function cloudBadge(cloud) {
+  const cls = 'badge-' + (CLOUD_COLORS[cloud] ? cloud : 'blue');
+  return `<span class="badge ${cls}">${esc(CLOUD_LABELS[cloud] || cloud)}</span>`;
+}
+
+function renderTable() {
+  const sorted = [...filtered].sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (typeof av === 'boolean') { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+    if (av === undefined) av = '';
+    if (bv === undefined) bv = '';
+    return String(av).localeCompare(String(bv), undefined, {numeric: true}) * sortDir;
+  });
+
+  const total = sorted.length;
+  const pages = Math.ceil(total / PAGE_SIZE) || 1;
+  currentPage = Math.min(currentPage, pages);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = sorted.slice(start, start + PAGE_SIZE);
+
+  const tbody = document.getElementById('resource-table-body');
+
+  if (page.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔍</div><p>No resources match your filters.</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = page.map(r => `
+      <tr>
+        <td><div class="resource-name" title="${esc(r.name || r.id)}">${esc(r.name || '—')}</div></td>
+        <td><div class="resource-id" title="${esc(r.id)}">${esc(r.id)}</div></td>
+        <td>${esc(r.type)}</td>
+        <td><span class="badge badge-blue">${esc(r.category)}</span></td>
+        <td>${cloudBadge(r.cloud)}</td>
+        <td><span style="font-family:monospace;font-size:0.8rem">${esc(r.region)}</span></td>
+        <td>${stateBadge(r.state)}</td>
+        <td><span class="detail-text">${esc(r.detail || '')}</span></td>
+        <td>${r.billable
+          ? '<span class="badge badge-green">✓ Yes</span>'
+          : '<span class="badge badge-gray">✗ No</span>'}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('table-info').textContent =
+    total > 0
+      ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, total)} of ${total.toLocaleString()} resources`
+      : '0 resources';
+
+  const btnContainer = document.getElementById('page-btns');
+  btnContainer.innerHTML = '';
+  const maxBtns = 7;
+  let startPage = Math.max(1, currentPage - Math.floor(maxBtns / 2));
+  let endPage = Math.min(pages, startPage + maxBtns - 1);
+  if (endPage - startPage < maxBtns - 1) startPage = Math.max(1, endPage - maxBtns + 1);
+
+  const prev = document.createElement('button');
+  prev.className = 'page-btn';
+  prev.textContent = '‹';
+  prev.disabled = currentPage === 1;
+  prev.onclick = () => { currentPage--; renderTable(); };
+  btnContainer.appendChild(prev);
+
+  for (let p = startPage; p <= endPage; p++) {
+    const btn = document.createElement('button');
+    btn.className = 'page-btn' + (p === currentPage ? ' active' : '');
+    btn.textContent = p;
+    btn.onclick = (pp => () => { currentPage = pp; renderTable(); })(p);
+    btnContainer.appendChild(btn);
+  }
+
+  const next = document.createElement('button');
+  next.className = 'page-btn';
+  next.textContent = '›';
+  next.disabled = currentPage === pages;
+  next.onclick = () => { currentPage++; renderTable(); };
+  btnContainer.appendChild(next);
+}
+
+function stateBadge(state) {
+  const s = (state || '').toLowerCase();
+  if (['running','active','available','deployed','complete','completed'].includes(s))
+    return `<span class="badge badge-green">${esc(state)}</span>`;
+  if (['stopped','stopping'].includes(s))
+    return `<span class="badge badge-yellow">${esc(state)}</span>`;
+  if (['terminated','deleted','deleting','failed'].includes(s))
+    return `<span class="badge badge-red">${esc(state)}</span>`;
+  return `<span class="badge badge-gray">${esc(state)}</span>`;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── Download HTML Report ───────────────────────────────────────────────────
+async function downloadReport() {
+  if (!allResources.length) return;
+
+  // Fetch logo and encode as data URL for self-contained embedding
+  let logoDataUrl = '';
+  try {
+    const resp = await fetch('/static/accuknox-logo.png');
+    const blob = await resp.blob();
+    logoDataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) { /* logo optional */ }
+
+  const theme  = document.documentElement.getAttribute('data-theme') || 'dark';
+  const isDark = theme !== 'light';
+  const bg      = isDark ? '#0f1117' : '#f0f2f7';
+  const surface = isDark ? '#1a1d27' : '#ffffff';
+  const surf2   = isDark ? '#22263a' : '#e8eaf2';
+  const border  = isDark ? '#2e3250' : '#d0d5e8';
+  const txt     = isDark ? '#e2e8f0' : '#1a1d2e';
+  const muted   = isDark ? '#8892a4' : '#5a6480';
+  const accent  = '#4f8ef7';
+
+  const total    = allResources.length;
+  const billable = allResources.filter(r => r.billable).length;
+  const clouds   = [...new Set(allResources.map(r => r.cloud))];
+
+  const byCloud = {}, byCat = {};
+  allResources.forEach(r => {
+    if (!byCloud[r.cloud])    byCloud[r.cloud]    = {total:0, billable:0};
+    if (!byCat[r.category])   byCat[r.category]   = {total:0, billable:0};
+    byCloud[r.cloud].total++;    if (r.billable) byCloud[r.cloud].billable++;
+    byCat[r.category].total++;   if (r.billable) byCat[r.category].billable++;
+  });
+
+  const CLABELS = {aws:'AWS', azure:'Azure', gcp:'GCP', oracle:'Oracle'};
+  const CCOLORS = {aws:'#FF9900', azure:'#0078D4', gcp:'#4285F4', oracle:'#C74634'};
+
+  const cloudRows = Object.entries(byCloud).map(([c,v]) =>
+    `<tr><td><span class="cbadge" style="background:${CCOLORS[c]||accent}22;color:${CCOLORS[c]||accent}">${CLABELS[c]||c}</span></td>
+     <td class="num">${v.total.toLocaleString()}</td>
+     <td class="num yes">${v.billable.toLocaleString()}</td>
+     <td class="num no">${(v.total-v.billable).toLocaleString()}</td></tr>`).join('');
+
+  const catRows = Object.entries(byCat).sort((a,b)=>b[1].total-a[1].total).map(([c,v]) =>
+    `<tr><td>${c}</td><td class="num">${v.total.toLocaleString()}</td>
+     <td class="num yes">${v.billable.toLocaleString()}</td></tr>`).join('');
+
+  const reportDate  = new Date().toLocaleString();
+  const dataJson    = JSON.stringify(allResources);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AccuKnox Asset Report — ${reportDate}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${bg};color:${txt};padding:28px 32px;font-size:14px;min-height:100vh}
+a{color:${accent}}
+/* Header */
+.rpt-header{margin-bottom:28px}
+.rpt-title-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.rpt-logo{height:32px;width:auto;display:block;${isDark?'filter:brightness(1.1)':''}}
+.rpt-header h1{font-size:1.35rem;margin-bottom:3px}
+.subtitle{color:${muted};font-size:0.84rem}
+/* Cards */
+.cards{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:24px}
+.card{background:${surface};border:1px solid ${border};border-radius:10px;padding:16px 22px;min-width:170px;flex:1;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.blue::before{background:linear-gradient(90deg,${accent},#7c5cbf)}
+.card.green::before{background:linear-gradient(90deg,#34c47c,#1fa85a)}
+.card.yellow::before{background:linear-gradient(90deg,#f5a623,#e07b23)}
+.card.purple::before{background:linear-gradient(90deg,#7c5cbf,#5a3fa0)}
+.card-label{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${muted};margin-bottom:6px}
+.card-value{font-size:1.85rem;font-weight:700;line-height:1}
+.card-sub{font-size:0.77rem;color:${muted};margin-top:3px}
+/* Section */
+.section{background:${surface};border:1px solid ${border};border-radius:12px;margin-bottom:18px;overflow:hidden}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;gap:12px}
+.section-hdr:hover{background:${surf2}}
+.section-title{font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${muted};display:flex;align-items:center;gap:8px}
+.section-count{background:${surf2};border:1px solid ${border};border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;color:${txt}}
+.toggle-icon{color:${muted};font-size:0.85rem;transition:transform .2s;flex-shrink:0}
+.section-body{border-top:1px solid ${border}}
+.section.collapsed .section-body{display:none}
+.section.collapsed .toggle-icon{transform:rotate(-90deg)}
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:0.82rem}
+thead th{background:${surf2};padding:9px 14px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${muted};white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:${txt}}
+thead th .si{opacity:.4;margin-left:3px}
+thead th.sorted .si{opacity:1;color:${accent}}
+tbody tr{border-top:1px solid ${border}}
+tbody tr:hover{background:${surf2}}
+td{padding:9px 14px;vertical-align:middle}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.yes{color:#34c47c;font-weight:600}
+.no{color:${muted}}
+.cbadge{display:inline-block;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700}
+.sbadge{display:inline-block;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:600}
+.s-run{background:rgba(52,196,124,.15);color:#34c47c}
+.s-stop{background:rgba(245,166,35,.15);color:#f5a623}
+.s-err{background:rgba(224,82,82,.15);color:#e05252}
+.s-def{background:${surf2};color:${muted}}
+.rname{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.rid{font-family:monospace;font-size:.77rem;color:${muted};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;padding:14px 16px;flex-wrap:wrap;border-bottom:1px solid ${border};background:${surf2}}
+.filter-bar input,.filter-bar select{background:${surface};border:1px solid ${border};color:${txt};border-radius:7px;padding:6px 10px;font-size:.8rem;outline:none}
+.filter-bar input{flex:1;min-width:160px}
+.filter-bar input:focus,.filter-bar select:focus{border-color:${accent}}
+.filter-bar select option{background:${surface}}
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid ${border};font-size:.8rem;color:${muted};gap:8px;flex-wrap:wrap}
+.page-btns{display:flex;gap:4px}
+.pbtn{background:${surf2};border:1px solid ${border};color:${txt};border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.78rem}
+.pbtn:hover,.pbtn.active{background:${accent};border-color:${accent};color:#fff}
+.pbtn:disabled{opacity:.4;cursor:not-allowed}
+/* Toolbar */
+.tbar{display:flex;align-items:center;justify-content:flex-end;padding:10px 16px;gap:8px;border-bottom:1px solid ${border}}
+.tbtn{background:${surf2};border:1px solid ${border};color:${txt};border-radius:7px;padding:5px 12px;font-size:.78rem;cursor:pointer}
+.tbtn:hover{border-color:${accent};color:${accent}}
+/* Footer */
+.footer{margin-top:24px;font-size:.74rem;color:${muted};border-top:1px solid ${border};padding-top:10px}
+</style>
+</head>
+<body>
+<div class="rpt-header">
+  <div class="rpt-title-row">
+    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="AccuKnox" class="rpt-logo"/>` : ''}
+    <div>
+      <h1>Cloud Inventory Report</h1>
+      <div class="subtitle">Generated: ${reportDate} &nbsp;·&nbsp; Clouds: ${clouds.map(c=>CLABELS[c]||c).join(', ')}</div>
+    </div>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card blue">
+    <div class="card-label">Total Assets</div>
+    <div class="card-value">${total.toLocaleString()}</div>
+    <div class="card-sub">across ${clouds.length} cloud${clouds.length!==1?'s':''}</div>
+  </div>
+  <div class="card green">
+    <div class="card-label">Billable Resources</div>
+    <div class="card-value">${billable.toLocaleString()}</div>
+    <div class="card-sub">${Math.round(billable/total*100)}% of total</div>
+  </div>
+  <div class="card yellow">
+    <div class="card-label">Non-Billable / Idle</div>
+    <div class="card-value">${(total-billable).toLocaleString()}</div>
+    <div class="card-sub">stopped / terminated</div>
+  </div>
+  <div class="card purple">
+    <div class="card-label">Resource Types</div>
+    <div class="card-value" id="rtypes">—</div>
+    <div class="card-sub" id="rcats">—</div>
+  </div>
+</div>
+
+<!-- By Cloud -->
+<div class="section" id="sec-cloud">
+  <div class="section-hdr" onclick="toggleSec('sec-cloud')">
+    <span class="section-title">☁️ By Cloud Provider <span class="section-count">${clouds.length}</span></span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <table>
+      <thead><tr>
+        <th onclick="sortSummaryTable('cloud-tbl',0)">Cloud <span class="si">↕</span></th>
+        <th onclick="sortSummaryTable('cloud-tbl',1)" style="text-align:right">Total <span class="si">↕</span></th>
+        <th onclick="sortSummaryTable('cloud-tbl',2)" style="text-align:right">Billable <span class="si">↕</span></th>
+        <th onclick="sortSummaryTable('cloud-tbl',3)" style="text-align:right">Non-Billable <span class="si">↕</span></th>
+      </tr></thead>
+      <tbody id="cloud-tbl">${cloudRows}</tbody>
+    </table>
+  </div>
+</div>
+
+<!-- By Category -->
+<div class="section" id="sec-cat">
+  <div class="section-hdr" onclick="toggleSec('sec-cat')">
+    <span class="section-title">📂 By Category <span class="section-count">${Object.keys(byCat).length}</span></span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <table>
+      <thead><tr>
+        <th onclick="sortSummaryTable('cat-tbl',0)">Category <span class="si">↕</span></th>
+        <th onclick="sortSummaryTable('cat-tbl',1)" style="text-align:right">Total <span class="si">↕</span></th>
+        <th onclick="sortSummaryTable('cat-tbl',2)" style="text-align:right">Billable <span class="si">↕</span></th>
+      </tr></thead>
+      <tbody id="cat-tbl">${catRows}</tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Resource Inventory -->
+<div class="section" id="sec-inv">
+  <div class="section-hdr" onclick="toggleSec('sec-inv')">
+    <span class="section-title">📋 Resource Inventory <span class="section-count" id="inv-count">${total.toLocaleString()}</span></span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="filter-bar">
+      <input type="text" id="f-search" placeholder="Search name, ID or type…" oninput="applyF()"/>
+      <select id="f-cloud" onchange="applyF()"><option value="">All Clouds</option></select>
+      <select id="f-cat"   onchange="applyF()"><option value="">All Categories</option></select>
+      <select id="f-type"  onchange="applyF()"><option value="">All Types</option></select>
+      <select id="f-reg"   onchange="applyF()"><option value="">All Regions</option></select>
+      <select id="f-bill"  onchange="applyF()">
+        <option value="">All</option>
+        <option value="yes">Billable</option>
+        <option value="no">Non-Billable</option>
+      </select>
+    </div>
+    <div class="tbar">
+      <span id="filter-summary" style="flex:1;color:${muted};font-size:.8rem"></span>
+      <button class="tbtn" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="res-table">
+        <thead><tr>
+          <th onclick="sortCol(0)">Name <span class="si" id="si-0">↕</span></th>
+          <th onclick="sortCol(1)">Resource ID <span class="si" id="si-1">↕</span></th>
+          <th onclick="sortCol(2)">Type <span class="si" id="si-2">↕</span></th>
+          <th onclick="sortCol(3)">Category <span class="si" id="si-3">↕</span></th>
+          <th onclick="sortCol(4)">Cloud <span class="si" id="si-4">↕</span></th>
+          <th onclick="sortCol(5)">Region <span class="si" id="si-5">↕</span></th>
+          <th onclick="sortCol(6)">State <span class="si" id="si-6">↕</span></th>
+          <th>Detail</th>
+          <th onclick="sortCol(8)">Billable <span class="si" id="si-8">↕</span></th>
+        </tr></thead>
+        <tbody id="res-body"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span id="pg-info"></span>
+      <div class="page-btns" id="pg-btns"></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">AccuKnox Asset Check &nbsp;·&nbsp; ${reportDate}</div>
+
+<script>
+const RESOURCES = ${dataJson};
+const CLABELS = ${JSON.stringify(CLABELS)};
+const CCOLORS = ${JSON.stringify(CCOLORS)};
+const PAGE = 100;
+let filtered = [...RESOURCES];
+let pg = 1;
+let sortField = 2, sortDir = 1;
+
+// ── Populate dropdowns ──
+function uniq(fn) { return [...new Set(RESOURCES.map(fn))].sort(); }
+function fill(id, vals) {
+  const el = document.getElementById(id);
+  const cur = el.value;
+  el.innerHTML = el.options[0].outerHTML;
+  vals.forEach(v => { const o = document.createElement('option'); o.value=v; o.textContent=CLABELS[v]||v; if(v===cur)o.selected=true; el.appendChild(o); });
+}
+fill('f-cloud', uniq(r=>r.cloud));
+fill('f-cat',   uniq(r=>r.category));
+fill('f-type',  uniq(r=>r.type));
+fill('f-reg',   uniq(r=>r.region));
+
+// ── Cards ──
+const types = new Set(RESOURCES.map(r=>r.type));
+const cats  = new Set(RESOURCES.map(r=>r.category));
+document.getElementById('rtypes').textContent = types.size;
+document.getElementById('rcats').textContent  = cats.size + ' categories';
+
+// ── Section toggle ──
+function toggleSec(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── Summary table sort ──
+function sortSummaryTable(tbodyId, col) {
+  const tbody = document.getElementById(tbodyId);
+  const rows = [...tbody.querySelectorAll('tr')];
+  const dir = tbody._sortCol===col ? -(tbody._sortDir||1) : 1;
+  tbody._sortCol = col; tbody._sortDir = dir;
+  rows.sort((a,b) => {
+    const av = a.cells[col].textContent.trim().replace(/,/g,'');
+    const bv = b.cells[col].textContent.trim().replace(/,/g,'');
+    const an = parseFloat(av), bn = parseFloat(bv);
+    return (isNaN(an) ? av.localeCompare(bv) : an - bn) * dir;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ── Resource table ──
+const FIELDS = ['name','id','type','category','cloud','region','state','detail','billable'];
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function stateBadge(s) {
+  const v = (s||'').toLowerCase();
+  const cls = ['running','active','available','deployed','complete','completed'].includes(v) ? 's-run'
+            : ['stopped','stopping'].includes(v) ? 's-stop'
+            : ['terminated','deleted','deleting','failed'].includes(v) ? 's-err' : 's-def';
+  return \`<span class="sbadge \${cls}">\${esc(s)}</span>\`;
+}
+
+function cloudBadge(c) {
+  const col = CCOLORS[c]||'#4f8ef7';
+  return \`<span class="cbadge" style="background:\${col}22;color:\${col}">\${CLABELS[c]||esc(c)}</span>\`;
+}
+
+function renderTable() {
+  const sorted = [...filtered].sort((a,b) => {
+    let av = a[FIELDS[sortField]], bv = b[FIELDS[sortField]];
+    if (typeof av==='boolean'){av=av?1:0;bv=bv?1:0;}
+    av=av??''; bv=bv??'';
+    return String(av).localeCompare(String(bv),undefined,{numeric:true})*sortDir;
+  });
+
+  const total = sorted.length;
+  const pages = Math.ceil(total/PAGE)||1;
+  pg = Math.min(pg,pages);
+  const start=(pg-1)*PAGE;
+  const slice=sorted.slice(start,start+PAGE);
+
+  document.getElementById('res-body').innerHTML = slice.length
+    ? slice.map(r=>\`<tr>
+        <td><div class="rname" title="\${esc(r.name)}">\${esc(r.name||'—')}</div></td>
+        <td><div class="rid" title="\${esc(r.id)}">\${esc(r.id)}</div></td>
+        <td>\${esc(r.type)}</td>
+        <td>\${esc(r.category)}</td>
+        <td>\${cloudBadge(r.cloud)}</td>
+        <td style="font-family:monospace;font-size:.78em">\${esc(r.region)}</td>
+        <td>\${stateBadge(r.state)}</td>
+        <td style="color:${muted};font-size:.8em">\${esc(r.detail||'')}</td>
+        <td>\${r.billable?'<span class="yes">✓ Yes</span>':'<span class="no">✗ No</span>'}</td>
+      </tr>\`).join('')
+    : '<tr><td colspan="9" style="text-align:center;padding:40px;color:${muted}">No resources match the current filters.</td></tr>';
+
+  document.getElementById('inv-count').textContent = total.toLocaleString();
+  document.getElementById('pg-info').textContent = total>0
+    ? \`Showing \${start+1}–\${Math.min(start+PAGE,total)} of \${total.toLocaleString()}\` : '0 resources';
+  document.getElementById('filter-summary').textContent = filtered.length < RESOURCES.length
+    ? \`\${filtered.length.toLocaleString()} of \${RESOURCES.length.toLocaleString()} resources shown\` : '';
+
+  // Pagination buttons
+  const bc = document.getElementById('pg-btns');
+  bc.innerHTML='';
+  const maxB=7, sp=Math.max(1,pg-Math.floor(maxB/2));
+  let ep=Math.min(pages,sp+maxB-1);
+  const sp2=Math.max(1,ep-maxB+1);
+
+  const mk=(t,disabled,active,onclick)=>{
+    const b=document.createElement('button');
+    b.className='pbtn'+(active?' active':'');
+    b.textContent=t; b.disabled=disabled;
+    if(onclick)b.onclick=onclick;
+    return b;
+  };
+  bc.appendChild(mk('‹', pg===1, false, ()=>{pg--;renderTable();}));
+  for(let p=sp2;p<=ep;p++) bc.appendChild(mk(p,false,p===pg,((pp)=>()=>{pg=pp;renderTable();})(p)));
+  bc.appendChild(mk('›', pg===pages, false, ()=>{pg++;renderTable();}));
+
+  // Sort icons
+  document.querySelectorAll('thead .si').forEach(el=>el.textContent='↕');
+  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
+  const si=document.getElementById('si-'+sortField);
+  if(si){si.textContent=sortDir===1?'↑':'↓';si.closest('th').classList.add('sorted');}
+}
+
+function applyF() {
+  const q    = document.getElementById('f-search').value.toLowerCase();
+  const cld  = document.getElementById('f-cloud').value;
+  const cat  = document.getElementById('f-cat').value;
+  const typ  = document.getElementById('f-type').value;
+  const reg  = document.getElementById('f-reg').value;
+  const bill = document.getElementById('f-bill').value;
+  filtered = RESOURCES.filter(r=>{
+    if(q && !r.name.toLowerCase().includes(q) && !r.id.toLowerCase().includes(q) && !r.type.toLowerCase().includes(q)) return false;
+    if(cld  && r.cloud    !==cld)  return false;
+    if(cat  && r.category !==cat)  return false;
+    if(typ  && r.type     !==typ)  return false;
+    if(reg  && r.region   !==reg)  return false;
+    if(bill==='yes' && !r.billable) return false;
+    if(bill==='no'  &&  r.billable) return false;
+    return true;
+  });
+  pg=1;
+  renderTable();
+  fill('f-cloud', uniq(r=>r.cloud));
+  fill('f-cat',   uniq(r=>r.category));
+  fill('f-type',  uniq(r=>r.type));
+  fill('f-reg',   uniq(r=>r.region));
+}
+
+function sortCol(col){
+  sortDir = sortField===col ? -sortDir : 1;
+  sortField=col; pg=1;
+  renderTable();
+}
+
+function exportCSV(){
+  const hdr=['Name','ID','Type','Category','Cloud','Region','State','Detail','Billable'];
+  const rows=filtered.map(r=>[r.name,r.id,r.type,r.category,CLABELS[r.cloud]||r.cloud,r.region,r.state,r.detail,r.billable?'Yes':'No']
+    .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const csv=[hdr.join(','),...rows].join('\\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='accuknox-assets.csv';a.click();
+}
+
+renderTable();
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `accuknox-report-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+}
+
+// ── Export CSV ─────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!filtered.length) return;
+  const headers = ['Name','ID','Type','Category','Cloud','Region','State','Detail','Billable'];
+  const rows = filtered.map(r => [
+    r.name, r.id, r.type, r.category,
+    CLOUD_LABELS[r.cloud] || r.cloud,
+    r.region, r.state, r.detail, r.billable ? 'Yes' : 'No'
+  ].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `accuknox-assets-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+// ── Mode toggle ───────────────────────────────────────────────────────────
+function toggleMode() {
+  scanMode = scanMode === 'billable' ? 'full' : 'billable';
+  const track = document.getElementById('mode-track');
+  track.classList.toggle('on', scanMode === 'full');
+  document.getElementById('mode-label-billable').classList.toggle('mode-label-active', scanMode === 'billable');
+  document.getElementById('mode-label-full').classList.toggle('mode-label-active', scanMode === 'full');
+}
+
+// ── Scan lifecycle ─────────────────────────────────────────────────────────
+async function startScan() {
+  if (selectedClouds.length === 0) {
+    setStatus('error', 'No clouds selected or configured. Please set up at least one cloud provider.');
+    return;
+  }
+
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('mode-track').style.pointerEvents = 'none';
+  const modeLabel = scanMode === 'full' ? 'full inventory' : 'billable assets';
+  const cloudNames = selectedClouds.map(c => CLOUD_LABELS[c] || c).join(', ');
+  setStatus('running', `Starting ${modeLabel} scan for ${cloudNames}…`);
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-fill').style.width = '0%';
+
+  allResources = [];
+  filtered = [];
+  updateCards({});
+  renderTable();
+  document.getElementById('errors-section').style.display = 'none';
+
+  try {
+    const cloudsParam = selectedClouds.join(',');
+    const res = await fetch(`/api/scan?clouds=${encodeURIComponent(cloudsParam)}&mode=${scanMode}`, {method: 'POST'});
+    const {scan_id} = await res.json();
+    currentScanId = scan_id;
+    localStorage.setItem('ak-scan-id', scan_id);
+    document.getElementById('details-btn').style.display = 'inline';
+    pollScan(scan_id);
+  } catch(e) {
+    setStatus('error', 'Failed to start scan: ' + e.message);
+    document.getElementById('scan-btn').disabled = false;
+    document.getElementById('mode-track').style.pointerEvents = '';
+  }
+}
+
+function pollScan(scanId) {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/scan/${scanId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const done = data.regions_done || 0;
+      const total = data.regions_total || 1;
+      const pct = Math.min(95, done / total * 90 + 5);
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-label').textContent =
+        data.status === 'running' ? (data.progress || '') : '';
+
+      if (data.account_id) {
+        document.getElementById('account-id').textContent = data.account_id;
+      }
+
+      updateScanDetails(data);
+
+      if (data.status === 'complete') {
+        clearInterval(pollTimer);
+        document.getElementById('progress-fill').style.width = '100%';
+        document.getElementById('progress-wrap').style.display = 'none';
+
+        allResources = data.resources || [];
+        filtered = [...allResources];
+
+        updateCards(data.summary, data.account_id);
+        updateCharts(data.summary);
+        populateFilters(allResources);
+        applyFilters();
+
+        const elapsed = data.started_at
+          ? ((new Date(data.completed_at) - new Date(data.started_at)) / 1000).toFixed(1)
+          : '?';
+        const modeTag = data.mode === 'full' ? 'Full scan' : 'Billable scan';
+        setStatus('complete',
+          `${modeTag} complete — ${allResources.length.toLocaleString()} resources found in ${elapsed}s`);
+
+        if (data.errors && data.errors.length) {
+          document.getElementById('errors-section').style.display = 'block';
+          document.getElementById('errors-list').textContent = data.errors.join('\n');
+        }
+
+        document.getElementById('scan-btn').disabled = false;
+        document.getElementById('scan-btn').textContent = '↺ Scan';
+        document.getElementById('mode-track').style.pointerEvents = '';
+      } else if (data.status === 'running') {
+        setStatus('running', data.progress || 'Scanning…');
+      }
+    } catch(e) {
+      // silently ignore poll errors
+    }
+  }, 1500);
+}
+
+function setStatus(state, msg) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + state;
+  document.getElementById('status-text').textContent = msg;
+}
+
+// ── Scan log polling ──────────────────────────────────────────────────────
+let logOffset = 0;
+let logPollTimer = null;
+let logCollapsed = false;
+
+function toggleSdmLog() {
+  logCollapsed = !logCollapsed;
+  document.getElementById('sdm-log-body').classList.toggle('collapsed', logCollapsed);
+  document.getElementById('sdm-log-toggle').textContent = logCollapsed ? '▸ expand' : '▾ collapse';
+}
+
+function startLogPoll(scanId) {
+  logOffset = 0;
+  document.getElementById('sdm-log-body').innerHTML = '';
+  if (logPollTimer) clearInterval(logPollTimer);
+  logPollTimer = setInterval(() => fetchLogChunk(scanId), 1200);
+  fetchLogChunk(scanId);
+}
+
+function stopLogPoll() {
+  if (logPollTimer) { clearInterval(logPollTimer); logPollTimer = null; }
+}
+
+async function fetchLogChunk(scanId) {
+  try {
+    const res = await fetch(`/api/scan/${scanId}/log?offset=${logOffset}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.entries || !data.entries.length) return;
+    appendLogEntries(data.entries);
+    logOffset += data.entries.length;
+    document.getElementById('sdm-log-count').textContent = `(${data.total} lines)`;
+    // Stop once complete and all lines fetched
+    if (_scans_cache && _scans_cache.status === 'complete' && logOffset >= data.total) stopLogPoll();
+  } catch(e) { /* ignore */ }
+}
+
+let _scans_cache = null;  // updated by updateScanDetails
+
+function appendLogEntries(entries) {
+  const body = document.getElementById('sdm-log-body');
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  entries.forEach(e => {
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="log-ts">${esc(e.ts)}</span>`
+                   + `<span class="log-msg-${e.lvl || 'info'}">${esc(e.msg)}</span>`;
+    body.appendChild(line);
+  });
+  if (atBottom) body.scrollTop = body.scrollHeight;
+}
+
+// ── Scan detail modal ─────────────────────────────────────────────────────
+const CLOUD_ICONS2 = { aws:'🟠', azure:'🔵', gcp:'🔷', oracle:'🔴' };
+
+function openScanDetails() {
+  document.getElementById('scan-detail-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  if (currentScanId) startLogPoll(currentScanId);
+}
+function closeScanDetails() {
+  document.getElementById('scan-detail-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+  stopLogPoll();
+}
+function closeScanDetailsOutside(e) {
+  if (e.target === document.getElementById('scan-detail-overlay')) closeScanDetails();
+}
+
+function updateScanDetails(data) {
+  _scans_cache = data;
+  const isRunning = data.status === 'running';
+  const isComplete = data.status === 'complete';
+
+  // Show/hide details button
+  document.getElementById('details-btn').style.display =
+    (isRunning || isComplete) ? 'inline' : 'none';
+
+  // Sub-line
+  const modeLabel = data.mode === 'full' ? 'Full scan' : 'Billable scan';
+  const cloudNames = (data.clouds || []).map(c => CLOUD_LABELS[c] || c).join(', ');
+  document.getElementById('sdm-sub').textContent =
+    `${modeLabel} · ${cloudNames}`;
+
+  // Elapsed time
+  if (data.started_at) {
+    const end = data.completed_at ? new Date(data.completed_at) : new Date();
+    const secs = Math.round((end - new Date(data.started_at)) / 1000);
+    const elStr = secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m ${secs%60}s`;
+    document.getElementById('sdm-elapsed').textContent = isComplete ? `Done in ${elStr}` : `${elStr} elapsed`;
+  }
+
+  // Overall progress bar & labels
+  const done  = data.steps_done  || 0;
+  const total = data.steps_total || (data.clouds || []).length || 1;
+  const pct   = isComplete ? 100 : Math.min(95, done / total * 100);
+  document.getElementById('sdm-bar').style.width = pct + '%';
+  document.getElementById('sdm-progress-text').textContent = data.progress || '…';
+  document.getElementById('sdm-steps').textContent = `${done} of ${total} cloud${total !== 1 ? 's' : ''}`;
+  document.getElementById('sdm-found').textContent =
+    `${(data.resources_so_far || (isComplete ? (data.resources||[]).length : 0)).toLocaleString()} resources found`;
+
+  // Per-cloud rows
+  const cloudStatus = data.cloud_status || {};
+  const cloudsOrder = data.clouds || Object.keys(cloudStatus);
+  const container = document.getElementById('sdm-clouds');
+  container.innerHTML = cloudsOrder.map(c => {
+    const info = cloudStatus[c] || { status: 'pending', count: 0 };
+    const isActive = info.status === 'scanning';
+    const badgeCls = { pending:'sdm-pending', scanning:'sdm-scanning', done:'sdm-done', error:'sdm-error' }[info.status] || 'sdm-pending';
+    const badgeTxt = { pending:'Pending', scanning:'Scanning…', done:'Done', error:'Error' }[info.status] || '?';
+    const icon = info.status === 'scanning' ? '⟳' : info.status === 'done' ? '✓' : info.status === 'error' ? '✗' : '○';
+    const countTxt = info.status === 'done' ? `${(info.count||0).toLocaleString()} resources` :
+                     info.status === 'error' ? (info.error || 'failed') :
+                     info.status === 'scanning' ? 'in progress…' : '';
+    return `<div class="sdm-cloud-row${isActive ? ' active' : ''}">
+      <span class="sdm-cloud-icon">${CLOUD_ICONS2[c] || '☁️'}</span>
+      <span class="sdm-cloud-name">${CLOUD_LABELS[c] || c}</span>
+      <span class="sdm-cloud-count">${esc(countTxt)}</span>
+      <span class="sdm-status-badge ${badgeCls}">${icon} ${badgeTxt}</span>
+    </div>`;
+  }).join('');
+
+  // Completion stats
+  const statsEl = document.getElementById('sdm-stats');
+  if (isComplete && data.summary) {
+    statsEl.style.display = 'flex';
+    document.getElementById('sdm-total').textContent    = (data.summary.total || 0).toLocaleString();
+    document.getElementById('sdm-billable').textContent = (data.summary.billable || 0).toLocaleString();
+    if (data.started_at && data.completed_at) {
+      const secs = Math.round((new Date(data.completed_at) - new Date(data.started_at)) / 1000);
+      document.getElementById('sdm-elapsed-final').textContent =
+        secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m ${secs%60}s`;
+    }
+  } else {
+    statsEl.style.display = 'none';
+  }
+
+  // Errors
+  const errEl = document.getElementById('sdm-errors');
+  if (data.errors && data.errors.length) {
+    errEl.style.display = 'block';
+    errEl.textContent = data.errors.join('\n');
+  } else {
+    errEl.style.display = 'none';
+  }
+}
+
+// ── Help modal ────────────────────────────────────────────────────────────
+function openHelp() {
+  document.getElementById('help-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeHelp() {
+  document.getElementById('help-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function closeHelpOutside(e) {
+  if (e.target === document.getElementById('help-overlay')) closeHelp();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+
+// ── Theme toggle ──────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').textContent = theme === 'light' ? '🌙' : '☀️';
+  localStorage.setItem('ak-theme', theme);
+  const gridColor = theme === 'light' ? '#d0d5e8' : '#2e3250';
+  const textColor = theme === 'light' ? '#5a6480' : '#8892a4';
+  Chart.defaults.color = textColor;
+  [categoryChart, regionChart, cloudChart].forEach(chart => {
+    if (!chart) return;
+    chart.options.scales.x.grid.color = gridColor;
+    chart.options.scales.y.grid.color = gridColor;
+    chart.update();
+  });
+  if (donutChart) {
+    donutChart.data.datasets[0].backgroundColor[1] = theme === 'light' ? '#d0d5e8' : '#2e3250';
+    donutChart.update();
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// ── Restore scan on page load ─────────────────────────────────────────────
+async function restoreScan(scanId) {
+  try {
+    const res = await fetch(`/api/scan/${scanId}`);
+    if (!res.ok) { localStorage.removeItem('ak-scan-id'); return; }
+    const data = await res.json();
+
+    updateScanDetails(data);
+    if (data.status === 'complete') {
+      allResources = data.resources || [];
+      filtered = [...allResources];
+      updateCards(data.summary, data.account_id);
+      updateCharts(data.summary);
+      populateFilters(allResources);
+      applyFilters();
+      const elapsed = data.started_at
+        ? ((new Date(data.completed_at) - new Date(data.started_at)) / 1000).toFixed(1)
+        : '?';
+      const modeTag = data.mode === 'full' ? 'Full scan' : 'Billable scan';
+      setStatus('complete',
+        `${modeTag} complete — ${allResources.length.toLocaleString()} resources found in ${elapsed}s`);
+      document.getElementById('scan-btn').textContent = '↺ Scan';
+      document.getElementById('details-btn').style.display = 'inline';
+      if (data.errors && data.errors.length) {
+        document.getElementById('errors-section').style.display = 'block';
+        document.getElementById('errors-list').textContent = data.errors.join('\n');
+      }
+    } else if (data.status === 'running') {
+      currentScanId = scanId;
+      const modeLabel = data.mode === 'full' ? 'full inventory' : 'billable assets';
+      setStatus('running', data.progress || `Resuming ${modeLabel} scan…`);
+      document.getElementById('progress-wrap').style.display = 'block';
+      document.getElementById('details-btn').style.display = 'inline';
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('mode-track').style.pointerEvents = 'none';
+      pollScan(scanId);
+    } else {
+      localStorage.removeItem('ak-scan-id');
+    }
+  } catch(e) {
+    localStorage.removeItem('ak-scan-id');
+  }
+}
+
+function loadReadonlyStatus() {
+  fetch('/api/readonly-check')
+    .then(r => r.json())
+    .then(data => { readonlyStatus = data; renderCloudPills(); })
+    .catch(() => {});
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const saved = localStorage.getItem('ak-theme') || 'dark';
+  applyTheme(saved);
+  initCharts();
+  renderTable();
+  loadClouds();
+  loadReadonlyStatus();
+  const savedScanId = localStorage.getItem('ak-scan-id');
+  if (savedScanId) await restoreScan(savedScanId);
+});
+</script>
+</body>
+</html>

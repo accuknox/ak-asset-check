@@ -1,0 +1,54 @@
+version: 2
+
+project_name: ak-asset-check
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: .
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - none*
+
+nfpms:
+  - package_name: ak-asset-check
+    homepage: https://github.com/accuknox/ak-asset-check
+    maintainer: AccuKnox <support@accuknox.com>
+    description: AccuKnox cloud asset inventory tool — scans AWS, Azure, GCP, and Oracle.
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/local/bin
+    contents:
+      - src: dist/ak-asset-check_{{ .Os }}_{{ .Arch }}/ak-asset-check
+        dst: /usr/local/bin/ak-asset-check
+        file_info:
+          mode: 0755
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  draft: false
+  prerelease: auto

@@ -1,0 +1,9 @@
+EC2
+RDS
+Aurora
+DynamoDB
+Lambda
+EKS
+ECS
+S3
+AI Models - LLMs
