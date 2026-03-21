@@ -6,36 +6,31 @@ Scan AWS, Azure, GCP, and Oracle Cloud for billable or all resources from a sing
 
 ## Install
 
-### macOS
+### macOS / Linux
 
 ```bash
-# Apple Silicon
-curl -Lo ak-asset-check https://github.com/accuknox/ak-asset-check/releases/latest/download/ak-asset-check-darwin-arm64.tar.gz \
-  | tar -xz && chmod +x ak-asset-check && sudo mv ak-asset-check /usr/local/bin/
-
-# Intel
-curl -Lo ak-asset-check https://github.com/accuknox/ak-asset-check/releases/latest/download/ak-asset-check-darwin-amd64.tar.gz \
-  | tar -xz && chmod +x ak-asset-check && sudo mv ak-asset-check /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/accuknox/ak-asset-check/main/install.sh | sh
 ```
 
-### Linux
+The script auto-detects your OS and architecture (amd64 / arm64) and installs to `/usr/local/bin`. To install to a different directory:
 
 ```bash
-# tar.gz
-curl -Lo ak-asset-check https://github.com/accuknox/ak-asset-check/releases/latest/download/ak-asset-check-linux-amd64.tar.gz \
-  | tar -xz && chmod +x ak-asset-check && sudo mv ak-asset-check /usr/local/bin/
-
-# Debian / Ubuntu (.deb)
-curl -LO https://github.com/accuknox/ak-asset-check/releases/latest/download/ak-asset-check_linux_amd64.deb
-sudo dpkg -i ak-asset-check_linux_amd64.deb
-
-# RHEL / Fedora (.rpm)
-sudo rpm -i https://github.com/accuknox/ak-asset-check/releases/latest/download/ak-asset-check_linux_amd64.rpm
+INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/accuknox/ak-asset-check/main/install.sh | sh
 ```
 
-### Windows
+To pin a specific version:
 
-Download `ak-asset-check-windows-amd64.zip` from the [latest release](https://github.com/accuknox/ak-asset-check/releases/latest), extract, and place `ak-asset-check.exe` anywhere on your `PATH`.
+```bash
+VERSION=v1.2.0 curl -fsSL https://raw.githubusercontent.com/accuknox/ak-asset-check/main/install.sh | sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/accuknox/ak-asset-check/main/install.ps1 | iex
+```
+
+Installs to `%LOCALAPPDATA%\Programs\ak-asset-check` and adds it to your user `PATH`.
 
 ---
 
