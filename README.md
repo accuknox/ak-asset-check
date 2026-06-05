@@ -30,6 +30,9 @@ VERSION=v1.2.0 curl -fsSL https://raw.githubusercontent.com/accuknox/ak-asset-ch
 iwr -useb https://raw.githubusercontent.com/accuknox/ak-asset-check/main/install.ps1 | iex
 ```
 
+Set Temp Env Var
+`$env:PATH += ";$env:LOCALAPPDATA\Programs\ak-asset-check"`
+
 Installs to `%LOCALAPPDATA%\Programs\ak-asset-check` and adds it to your user `PATH`.
 
 ---
